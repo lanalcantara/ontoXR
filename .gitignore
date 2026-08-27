@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build outputs & caches
+dist/
+target/
+.vite/
+*.log
+
+# OS & IDE files
+.DS_Store
+.idea/
+*.iml
+.classpath
+.project
+.settings/

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?eclipse version="3.0"?>
+<plugin>
+    <extension id="OntoXRView" point="org.protege.editor.core.application.ViewComponent">
+        <label value="OntoXR 3D WebXR View"/>
+        <class value="br.ufpe.cin.ontoxr.OntoXRViewComponent"/>
+        <category value="Ontology views"/>
+    </extension>
+
+    <extension id="OntoXRTab" point="org.protege.editor.core.application.WorkspaceTab">
+        <label value="OntoXR"/>
+        <class value="org.protege.editor.owl.ui.OWLWorkspaceViewsTab"/>
+        <defaultView id="OntoXRView"/>
+    </extension>
+</plugin>
