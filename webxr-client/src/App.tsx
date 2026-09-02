@@ -716,85 +716,117 @@ export default function App() {
     return () => cancelAnimationFrame(animationFrameId);
   }, [navigateCyclicStep, performFreeDash, resetToRootStart, toggleCurrentNodeDetails, triggerFocusedUiOption, toggleOrderedLayout, focusedUiIndex, selectedNode, isPresentationMode, showControlsModal]);
 
-  // Conexão WebSocket com o Servidor / Plugin do Protégé
+  // Carga de dados da Ontologia (Live WebSocket ou Arquivo Padrão)
+  const applyOntologyData = useCallback((data: any) => {
+    if (!data || !data.nodes || !data.links) return;
+
+    const classes = data.nodes.filter((n: any) => n.group === 'class').length;
+    const individuals = data.nodes.filter((n: any) => n.group === 'individual').length;
+
+    setStats({
+      nodes: data.nodes.length,
+      links: data.links.length,
+      classes: classes || data.nodes.length,
+      individuals: individuals
+    });
+    setGraphData(data);
+
+    // Início fiel no Primeiro Conceito da Árvore
+    if (data.nodes.length > 0) {
+      const orderedFlow = buildProtegeHierarchyFlow(data.nodes, data.links);
+      const firstNode = orderedFlow.length > 0 ? orderedFlow[0].node : data.nodes[0];
+      setTimeout(() => {
+        focusOnNode(firstNode, 1000);
+      }, 600);
+    }
+  }, [focusOnNode]);
+
+  // Conexão WebSocket com o Servidor / Plugin do Protégé & Fallback para GitHub Pages
   useEffect(() => {
-    const socket = new WebSocket('ws://localhost:8080');
-    socketRef.current = socket;
+    // 1. Tenta carregar a ontologia padrão imediatamente para exibição instantânea
+    fetch('./default-ontology.json')
+      .then(res => res.json())
+      .then(defaultData => {
+        applyOntologyData(defaultData);
+        setStatus(prev => (prev === 'Desconectado' ? 'Demonstração (BioHack.owl)' : prev));
+      })
+      .catch(err => {
+        console.warn('Ontologia padrão não carregada via fetch:', err);
+      });
 
-    socket.onopen = () => setStatus('Conectado ao Protégé');
+    // 2. Conexão WebSocket em tempo real com o servidor Java local (se disponível)
+    let socket: WebSocket | null = null;
+    try {
+      socket = new WebSocket('ws://localhost:8080');
+      socketRef.current = socket;
 
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+      socket.onopen = () => setStatus('Conectado ao Protégé');
 
-        // Novo comentário colaborativo
-        if (data.type === 'comment_added') {
-          const newComment = {
-            author: data.author || 'Anônimo',
-            text: data.text || '',
-            timestamp: data.timestamp || ''
-          };
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
 
-          setGraphData((prevData: any) => {
-            if (!prevData || !prevData.nodes) return prevData;
-            const updatedNodes = prevData.nodes.map((node: any) => {
-              if (node.id === data.nodeId) {
+          // Novo comentário colaborativo via streaming
+          if (data.type === 'comment_added') {
+            const newComment = {
+              author: data.author || 'Anônimo',
+              text: data.text || '',
+              timestamp: data.timestamp || ''
+            };
+
+            setGraphData((prevData: any) => {
+              if (!prevData || !prevData.nodes) return prevData;
+              const updatedNodes = prevData.nodes.map((node: any) => {
+                if (node.id === data.nodeId) {
+                  return {
+                    ...node,
+                    collaborativeComments: [...(node.collaborativeComments || []), newComment]
+                  };
+                }
+                return node;
+              });
+              return { ...prevData, nodes: updatedNodes };
+            });
+
+            setSelectedNode((prevSelected: any) => {
+              if (prevSelected && prevSelected.id === data.nodeId) {
                 return {
-                  ...node,
-                  collaborativeComments: [...(node.collaborativeComments || []), newComment]
+                  ...prevSelected,
+                  collaborativeComments: [...(prevSelected.collaborativeComments || []), newComment]
                 };
               }
-              return node;
+              return prevSelected;
             });
-            return { ...prevData, nodes: updatedNodes };
-          });
-
-          setSelectedNode((prevSelected: any) => {
-            if (prevSelected && prevSelected.id === data.nodeId) {
-              return {
-                ...prevSelected,
-                collaborativeComments: [...(prevSelected.collaborativeComments || []), newComment]
-              };
-            }
-            return prevSelected;
-          });
-          return;
-        }
-
-        // Carga da ontologia ativa do Protégé
-        if (data.nodes && data.links) {
-          const classes = data.nodes.filter((n: any) => n.group === 'class').length;
-          const individuals = data.nodes.filter((n: any) => n.group === 'individual').length;
-
-          setStats({
-            nodes: data.nodes.length,
-            links: data.links.length,
-            classes: classes || data.nodes.length,
-            individuals: individuals
-          });
-          setGraphData(data);
-
-          // Início fiel no Primeiro Conceito da Árvore
-          if (data.nodes.length > 0) {
-            const orderedFlow = buildProtegeHierarchyFlow(data.nodes, data.links);
-            const firstNode = orderedFlow.length > 0 ? orderedFlow[0].node : data.nodes[0];
-            setTimeout(() => {
-              focusOnNode(firstNode, 1000);
-            }, 600);
+            return;
           }
-        }
-      } catch (e) {
-        console.error('Erro no WebSocket:', e);
-      }
-    };
 
-    socket.onclose = () => setStatus('Desconectado');
+          // Carga da ontologia ativa do Protégé
+          if (data.nodes && data.links) {
+            applyOntologyData(data);
+          }
+        } catch (e) {
+          console.error('Erro no processamento do WebSocket:', e);
+        }
+      };
+
+      socket.onclose = () => {
+        setStatus(prev => (prev === 'Conectado ao Protégé' ? 'Demonstração (BioHack.owl)' : prev));
+      };
+
+      socket.onerror = () => {
+        setStatus(prev => (prev === 'Conectado ao Protégé' ? 'Demonstração (BioHack.owl)' : prev));
+      };
+    } catch {
+      setStatus('Demonstração (BioHack.owl)');
+    }
 
     return () => {
-      socket.close();
+      if (socket) {
+        socket.close();
+      }
       socketRef.current = null;
     };
-  }, [focusOnNode]);
+  }, [applyOntologyData]);
 
   // Pesquisa de Nós
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -816,7 +848,7 @@ export default function App() {
     }
   };
 
-  // Envio de Comentário
+  // Envio de Comentário (com suporte a fallback offline / GitHub Pages)
   const handleAddComment = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!commentText.trim() || !selectedNode) return;
@@ -837,11 +869,44 @@ export default function App() {
       timestamp: timeFormatted
     };
 
+    const newComment = {
+      author: currentAuthor,
+      text: commentText.trim(),
+      timestamp: timeFormatted
+    };
+
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify(payload));
-      setCommentText('');
+    } else {
+      // Suporte local quando rodando em modo Demonstração / GitHub Pages
+      setGraphData((prevData: any) => {
+        if (!prevData || !prevData.nodes) return prevData;
+        const updatedNodes = prevData.nodes.map((node: any) => {
+          if (node.id === selectedNode.id) {
+            return {
+              ...node,
+              collaborativeComments: [...(node.collaborativeComments || []), newComment]
+            };
+          }
+          return node;
+        });
+        return { ...prevData, nodes: updatedNodes };
+      });
+
+      setSelectedNode((prevSelected: any) => {
+        if (prevSelected && prevSelected.id === selectedNode.id) {
+          return {
+            ...prevSelected,
+            collaborativeComments: [...(prevSelected.collaborativeComments || []), newComment]
+          };
+        }
+        return prevSelected;
+      });
     }
+
+    setCommentText('');
   };
+
 
   // Renderização 3D: Caixas 3D no modo R3 e Esferas no modo normal
   const nodeThreeObject = useCallback((node: any) => {

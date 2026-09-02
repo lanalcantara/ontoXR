@@ -4,9 +4,19 @@
 
 <div align="center">
   <img src="docs/demo.gif" alt="OntoXR 3D WebXR Demo" width="100%" />
+  <br/><br/>
+  <a href="https://lanalcantara.github.io/ontoXR/">
+    <img src="https://img.shields.io/badge/🚀_Live_Demo-GitHub_Pages-2563eb?style=for-the-badge&logo=github" alt="Live Demo GitHub Pages" />
+  </a>
+  <a href="https://github.com/lanalcantara/ontoXR">
+    <img src="https://img.shields.io/badge/WebXR-Ready-10b981?style=for-the-badge&logo=webxr" alt="WebXR Ready" />
+  </a>
 </div>
 
+**🌐 Acesse a Aplicação Online no GitHub Pages:** **[https://lanalcantara.github.io/ontoXR/](https://lanalcantara.github.io/ontoXR/)**
+
 OntoXR é uma plataforma aberta que estabelece uma ponte entre a **Web Semântica (IA Simbólica)** e a **Computação Imersiva (Realidade Virtual/Aumentada)**, permitindo navegar por estruturas ontológicas complexas em espaço tridimensional interativo.
+
 
 ---
 
