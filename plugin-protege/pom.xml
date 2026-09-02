@@ -48,6 +48,13 @@
             <artifactId>gson</artifactId>
             <version>2.8.9</version>
         </dependency>
+
+        <!-- HermiT OWL Reasoner (compatible with OWL API 4.5.x / Protege 5.5) -->
+        <dependency>
+            <groupId>net.sourceforge.owlapi</groupId>
+            <artifactId>org.semanticweb.hermit</artifactId>
+            <version>1.4.3.456</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -83,9 +90,10 @@
                         <Import-Package>
                             !org.java_websocket.*,
                             !com.google.code.gson.*,
+                            !org.semanticweb.HermiT.*,
                             *;resolution:=optional
                         </Import-Package>
-                        <Embed-Dependency>Java-WebSocket,gson;scope=compile|runtime</Embed-Dependency>
+                        <Embed-Dependency>Java-WebSocket,gson,org.semanticweb.hermit;scope=compile|runtime</Embed-Dependency>
                         <Embed-Transitive>true</Embed-Transitive>
                     </instructions>
                 </configuration>

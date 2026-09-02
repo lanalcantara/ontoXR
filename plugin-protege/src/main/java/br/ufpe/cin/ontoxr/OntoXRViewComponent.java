@@ -3,39 +3,96 @@ package br.ufpe.cin.ontoxr;
 import org.protege.editor.owl.model.event.OWLModelManagerChangeEvent;
 import org.protege.editor.owl.model.event.OWLModelManagerListener;
 import org.protege.editor.owl.ui.view.AbstractOWLViewComponent;
-import org.semanticweb.owlapi.model.AxiomType;
-import org.semanticweb.owlapi.model.OWLAnnotationAssertionAxiom;
-import org.semanticweb.owlapi.model.OWLClass;
-import org.semanticweb.owlapi.model.OWLClassAssertionAxiom;
-import org.semanticweb.owlapi.model.OWLLiteral;
-import org.semanticweb.owlapi.model.OWLNamedIndividual;
 import org.semanticweb.owlapi.model.OWLOntology;
-import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.net.URI;
 
 public class OntoXRViewComponent extends AbstractOWLViewComponent {
 
     private static final long serialVersionUID = 1L;
+    private static final String CLIENT_URL = "http://localhost:5173";
     private OntoXRServer server;
     private OWLModelManagerListener modelListener;
     private JLabel statusLabel;
+    private JButton openBrowserBtn;
+    private JButton resyncBtn;
 
     @Override
     protected void initialiseOWLView() throws Exception {
         setLayout(new BorderLayout());
-        statusLabel = new JLabel("OntoXR Server initializing...", JLabel.CENTER);
-        statusLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-        add(statusLabel, BorderLayout.CENTER);
+        setBackground(new Color(15, 23, 42)); // Dark theme matching OntoXR
+
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBackground(new Color(15, 23, 42));
+        mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
+
+        JLabel titleLabel = new JLabel("🌐 OntoXR - Visualizador 3D de Ontologias");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        titleLabel.setForeground(new Color(56, 189, 248));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(titleLabel);
+
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        statusLabel = new JLabel("Iniciando servidor WebSocket...", JLabel.CENTER);
+        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        statusLabel.setForeground(new Color(148, 163, 184));
+        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(statusLabel);
+
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // Botão Principal: Abrir Navegador no OntoXR
+        openBrowserBtn = new JButton("🚀 Abrir Visualizador 3D no Navegador");
+        openBrowserBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        openBrowserBtn.setBackground(new Color(16, 185, 129));
+        openBrowserBtn.setForeground(Color.WHITE);
+        openBrowserBtn.setFocusPainted(false);
+        openBrowserBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        openBrowserBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        openBrowserBtn.setPreferredSize(new Dimension(320, 42));
+        openBrowserBtn.setMaximumSize(new Dimension(340, 44));
+
+        openBrowserBtn.addActionListener(e -> {
+            broadcastActiveOntology();
+            openBrowser(CLIENT_URL);
+        });
+        mainPanel.add(openBrowserBtn);
+
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 12)));
+
+        // Botão Secundário: Sincronizar Ontologia
+        resyncBtn = new JButton("🔄 Reenviar Ontologia Atual");
+        resyncBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        resyncBtn.setBackground(new Color(30, 41, 59));
+        resyncBtn.setForeground(new Color(203, 213, 225));
+        resyncBtn.setFocusPainted(false);
+        resyncBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        resyncBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        resyncBtn.setPreferredSize(new Dimension(320, 34));
+        resyncBtn.setMaximumSize(new Dimension(340, 36));
+
+        resyncBtn.addActionListener(e -> {
+            broadcastActiveOntology();
+            JOptionPane.showMessageDialog(this, "Ontologia sincronizada com sucesso com o visualizador!", "OntoXR", JOptionPane.INFORMATION_MESSAGE);
+        });
+        mainPanel.add(resyncBtn);
+
+        add(mainPanel, BorderLayout.CENTER);
 
         // Start WebSocket Server on port 8080
         try {
             server = new OntoXRServer(8080);
             server.start();
-            statusLabel.setText("<html><center><h2>OntoXR 3D WebXR View</h2><p>WebSocket Server running on <b>ws://localhost:8080</b></p></center></html>");
+            statusLabel.setText("● Servidor ativo na porta 8080 (ws://localhost:8080)");
+            statusLabel.setForeground(new Color(52, 211, 153));
         } catch (Exception e) {
-            statusLabel.setText("Error starting WebSocket server: " + e.getMessage());
+            statusLabel.setText("Erro ao iniciar servidor WebSocket: " + e.getMessage());
+            statusLabel.setForeground(new Color(239, 68, 68));
             e.printStackTrace();
         }
 
@@ -58,136 +115,36 @@ public class OntoXRViewComponent extends AbstractOWLViewComponent {
         OWLOntology ontology = getOWLModelManager().getActiveOntology();
         if (ontology == null) return;
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"nodes\":[");
-
-        boolean firstNode = true;
-
-        // 1. Extract OWL Classes as nodes (group: "class")
-        for (OWLClass cls : ontology.getClassesInSignature()) {
-            if (!firstNode) {
-                sb.append(",");
-            }
-            firstNode = false;
-
-            String iri = cls.getIRI().toString();
-            String name = cls.getIRI().getShortForm();
-            if (name == null || name.isEmpty()) {
-                name = iri;
-            }
-
-            String comment = "Sem descrição disponível";
-
-            for (OWLAnnotationAssertionAxiom axiom : ontology.getAnnotationAssertionAxioms(cls.getIRI())) {
-                if (axiom.getProperty().isComment() && axiom.getValue() instanceof OWLLiteral) {
-                    OWLLiteral val = (OWLLiteral) axiom.getValue();
-                    if (val.getLiteral() != null && !val.getLiteral().trim().isEmpty()) {
-                        comment = val.getLiteral().trim();
-                    }
-                } else if (axiom.getProperty().isLabel() && axiom.getValue() instanceof OWLLiteral) {
-                    OWLLiteral val = (OWLLiteral) axiom.getValue();
-                    if (val.getLiteral() != null && !val.getLiteral().trim().isEmpty()) {
-                        name = val.getLiteral().trim();
-                    }
-                }
-            }
-
-            sb.append("{\"id\":\"").append(escapeJson(iri))
-              .append("\",\"name\":\"").append(escapeJson(name))
-              .append("\",\"group\":\"class")
-              .append("\",\"comment\":\"").append(escapeJson(comment))
-              .append("\"}");
+        try {
+            String jsonString = OntologyParser.parseToJson(ontology);
+            server.broadcastOntology(jsonString);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        // 2. Extract OWLNamedIndividual as nodes (group: "individual")
-        for (OWLNamedIndividual ind : ontology.getIndividualsInSignature()) {
-            if (!firstNode) {
-                sb.append(",");
-            }
-            firstNode = false;
-
-            String iri = ind.getIRI().toString();
-            String name = ind.getIRI().getShortForm();
-            if (name == null || name.isEmpty()) {
-                name = iri;
-            }
-
-            String comment = "Sem descrição disponível";
-
-            for (OWLAnnotationAssertionAxiom axiom : ontology.getAnnotationAssertionAxioms(ind.getIRI())) {
-                if (axiom.getProperty().isComment() && axiom.getValue() instanceof OWLLiteral) {
-                    OWLLiteral val = (OWLLiteral) axiom.getValue();
-                    if (val.getLiteral() != null && !val.getLiteral().trim().isEmpty()) {
-                        comment = val.getLiteral().trim();
-                    }
-                } else if (axiom.getProperty().isLabel() && axiom.getValue() instanceof OWLLiteral) {
-                    OWLLiteral val = (OWLLiteral) axiom.getValue();
-                    if (val.getLiteral() != null && !val.getLiteral().trim().isEmpty()) {
-                        name = val.getLiteral().trim();
-                    }
-                }
-            }
-
-            sb.append("{\"id\":\"").append(escapeJson(iri))
-              .append("\",\"name\":\"").append(escapeJson(name))
-              .append("\",\"group\":\"individual")
-              .append("\",\"comment\":\"").append(escapeJson(comment))
-              .append("\"}");
-        }
-
-        sb.append("],\"links\":[");
-
-        boolean firstLink = true;
-
-        // 3. Extract OWL SubClassOf Axioms as links
-        for (OWLSubClassOfAxiom axiom : ontology.getAxioms(AxiomType.SUBCLASS_OF)) {
-            if (!axiom.getSubClass().isAnonymous() && !axiom.getSuperClass().isAnonymous()) {
-                if (!firstLink) {
-                    sb.append(",");
-                }
-                firstLink = false;
-
-                String subIri = axiom.getSubClass().asOWLClass().getIRI().toString();
-                String superIri = axiom.getSuperClass().asOWLClass().getIRI().toString();
-
-                sb.append("{\"source\":\"").append(escapeJson(subIri))
-                  .append("\",\"target\":\"").append(escapeJson(superIri))
-                  .append("\",\"relation\":\"subClassOf\"}");
-            }
-        }
-
-        // 4. Extract OWL ClassAssertion Axioms as links (individual -> class, relation: "instância_de")
-        for (OWLClassAssertionAxiom axiom : ontology.getAxioms(AxiomType.CLASS_ASSERTION)) {
-            if (!axiom.getIndividual().isAnonymous() && !axiom.getClassExpression().isAnonymous()) {
-                if (!firstLink) {
-                    sb.append(",");
-                }
-                firstLink = false;
-
-                String indIri = axiom.getIndividual().asOWLNamedIndividual().getIRI().toString();
-                String clsIri = axiom.getClassExpression().asOWLClass().getIRI().toString();
-
-                sb.append("{\"source\":\"").append(escapeJson(indIri))
-                  .append("\",\"target\":\"").append(escapeJson(clsIri))
-                  .append("\",\"relation\":\"instância_de\"}");
-            }
-        }
-
-        sb.append("]}");
-
-        String jsonString = sb.toString();
-        server.broadcastOntology(jsonString);
     }
 
-    private String escapeJson(String input) {
-        if (input == null) return "";
-        return input.replace("\\", "\\\\")
-                    .replace("\"", "\\\"")
-                    .replace("\b", "\\b")
-                    .replace("\f", "\\f")
-                    .replace("\n", "\\n")
-                    .replace("\r", "\\r")
-                    .replace("\t", "\\t");
+    public static void openBrowser(String url) {
+        try {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                Desktop.getDesktop().browse(new URI(url));
+                return;
+            }
+        } catch (Exception ignored) {}
+
+        // Fallback cross-platform
+        String os = System.getProperty("os.name", "").toLowerCase();
+        Runtime rt = Runtime.getRuntime();
+        try {
+            if (os.contains("win")) {
+                rt.exec(new String[]{"rundll32", "url.dll,FileProtocolHandler", url});
+            } else if (os.contains("mac")) {
+                rt.exec(new String[]{"open", url});
+            } else {
+                rt.exec(new String[]{"xdg-open", url});
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

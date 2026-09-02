@@ -2,6 +2,10 @@
 
 > **Visualização 3D e Imersão WebXR para Ontologias e Grafos de Conhecimento Semânticos.**
 
+<div align="center">
+  <img src="docs/demo.gif" alt="OntoXR 3D WebXR Demo" width="100%" />
+</div>
+
 OntoXR é uma plataforma aberta que estabelece uma ponte entre a **Web Semântica (IA Simbólica)** e a **Computação Imersiva (Realidade Virtual/Aumentada)**, permitindo navegar por estruturas ontológicas complexas em espaço tridimensional interativo.
 
 ---
@@ -10,7 +14,7 @@ OntoXR é uma plataforma aberta que estabelece uma ponte entre a **Web Semântic
 
 O **OntoXR** extrai conhecimento estruturado de ontologias em formato OWL (Web Ontology Language) via **OWL API** e plugin **Protégé 5.x** em Java, transmitindo a topologia da ontologia em tempo real via **WebSockets** para uma aplicação web **React + Three.js**. 
 
-A aplicação front-end renderiza um grafo de força 3D em tela cheia com física espacial, mapeamento visual distinto entre Classes e Instâncias/Entidades, painel de detalhes interativo com anotações (`rdfs:comment`) e suporte nativo ao **WebXR (VR)** para headsets como Meta Quest, HTC Vive e Apple Vision Pro.
+A aplicação front-end renderiza um grafo de força 3D em tela cheia com física espacial, mapeamento visual distinto entre Classes e Instâncias/Entidades, painel de detalhes interativo com anotações (`rdfs:comment`), suporte a controles/gamepads e suporte nativo ao **WebXR (VR)** para headsets como Meta Quest, HTC Vive e Apple Vision Pro.
 
 ---
 
@@ -21,7 +25,10 @@ A aplicação front-end renderiza um grafo de força 3D em tela cheia com físic
   - 🔵 **Classes OWL (`group: class`)**: Renderizadas em esferas azuis (`#3b82f6`).
   - 🟡 **Entidades/Instâncias (`group: individual`)**: Renderizadas em esferas âmbar (`#f59e0b`).
   - 🔗 **Relações Hierárquicas (`subClassOf`) e Instanciação (`instância_de`)**: Arestas direcionadas conectando o grafo.
-- 📇 **Painel de Detalhes Interativo:** Clique em qualquer nó para abrir o painel lateral com **Nome**, **Descrição/Anotações (`rdfs:comment`)**, **URI da Ontologia** e indicador de tipo de nó.
+- 📦 **Modo Diagrama em Caixas 3D (R3):** Diagramação vertical hierárquica e visualização estruturada com cards 3D texturizados procedurais.
+- 🔄 **Navegação Guiada & Cíclica:** Controles de fluxo para percorrer a ontologia sequencialmente (`⏮ Início`, `◀ Anterior`, `Próximo ▶`, `🌐 Panorâmica`).
+- 🕹️ **Suporte a Gamepads/Controles:** Reconhecimento automático de controles PlayStation (DualShock/DualSense), Xbox e Nintendo.
+- 📇 **Painel de Detalhes Interativo:** Informações completas de nós com **Nome**, **Descrição/Anotações (`rdfs:comment`)**, **URI da Ontologia**, anotações colaborativas e indicador de tipo.
 - 🥽 **Suporte NATIVO WebXR (VR):** Botão imersivo `"ENTER VR"` ativado automaticamente via Three.js WebXR API para navegação em Realidade Virtual.
 - ⚡ **Comunicação Reativa em Tempo Real:** Conexão WebSocket bidirecional para streaming imediato de dados entre o servidor Java e o cliente React.
 
@@ -64,44 +71,32 @@ flowchart LR
 
 ---
 
-### **2. Executando o Front-end React (`webxr-client`)**
+### **2. Executando o Projeto**
+
+#### **Opção A: A partir da raiz do repositório (Recomendado)**
 
 ```bash
-# Clone o repositório
-git clone https://github.com/lanalcantara/ontoXR.git
-cd ontoXR/webxr-client
-
-# Instale as dependências
-npm install
-
-# Inicie o servidor de desenvolvimento Vite
+# Iniciar o Front-end React (Vite)
 npm run dev
+
+# Em outro terminal, iniciar o Servidor Java Standalone (WebSocket na porta 8080)
+npm run server
+```
+
+#### **Opção B: Executando individualmente**
+
+```bash
+# 1. Front-end React
+cd webxr-client
+npm install
+npm run dev
+
+# 2. Servidor Back-end Java Standalone
+cd plugin-protege
+mvn compile exec:java -Dexec.mainClass="br.ufpe.cin.ontoxr.OntoXRStandalone"
 ```
 
 Acesse o cliente em **[http://localhost:5173](http://localhost:5173)** no seu navegador.
-
----
-
-### **3. Executando o Servidor WebSocket Java (`plugin-protege`)**
-
-Em um novo terminal na raiz do projeto:
-
-```bash
-cd plugin-protege
-
-# Compile o projeto Java
-mvn clean package
-
-# Execute o servidor Standalone na porta 8080
-mvn exec:java -Dexec.mainClass="br.ufpe.cin.ontoxr.OntoXRStandalone"
-```
-
-O console exibirá a confirmação de prontidão:
-```text
-[OntoXRStandalone] Total de Classes (OWLClass): 33
-[OntoXRStandalone] Total de Individuos (OWLNamedIndividual): 28
-=== SERVIDOR ONTOXR STANDALONE PRONTO NA PORTA 8080 ===
-```
 
 ---
 
@@ -109,18 +104,22 @@ O console exibirá a confirmação de prontidão:
 
 ```text
 ontoXR/
+├── docs/                         # Ativos de documentação (GIF demonstrativo)
+│   └── demo.gif
 ├── plugin-protege/               # Servidor WebSocket Java & Plugin Protégé 5.x
 │   ├── src/main/java/br/ufpe/cin/ontoxr/
 │   │   ├── OntoXRServer.java     # Implementação do servidor WebSocket
 │   │   ├── OntoXRStandalone.java # Classe executável main standalone
+│   │   ├── OntologyParser.java   # Parser OWL API para JSON
 │   │   └── OntoXRViewComponent.java # Componente de visão Protégé OSGi
 │   └── pom.xml
 ├── webxr-client/                 # Cliente Front-end 3D WebXR React
 │   ├── src/
-│   │   ├── App.tsx               # Componente principal do grafo 3D e painéis UI
+│   │   ├── App.tsx               # Grafo 3D, modos de visualização, VR e UI
 │   │   └── main.tsx
 │   ├── package.json
 │   └── vite.config.ts
+├── package.json                  # Scripts de atalho na raiz
 └── README.md
 ```
 
@@ -132,6 +131,7 @@ Este projeto está sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) par
 
 ---
 
-<p center="align">
+<p align="center">
   Desenvolvido para exploração avançada de Ontologias e Grafos de Conhecimento em WebXR. 🚀
 </p>
+

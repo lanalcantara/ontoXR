@@ -1,0 +1,12 @@
+{
+  "name": "ontoxr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OntoXR - Visualização 3D e Imersão WebXR para Ontologias",
+  "scripts": {
+    "dev": "npm --prefix webxr-client run dev",
+    "build": "npm --prefix webxr-client run build",
+    "client": "npm --prefix webxr-client run dev",
+    "server": "powershell -Command \"& 'C:\\Users\\Lana\\maven\\apache-maven-3.9.9\\bin\\mvn.cmd' -f plugin-protege/pom.xml compile exec:java '-Dexec.mainClass=br.ufpe.cin.ontoxr.OntoXRStandalone'\""
+  }
+}
